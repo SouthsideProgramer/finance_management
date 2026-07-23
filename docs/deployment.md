@@ -137,11 +137,21 @@ docker volume rm fincalc-pgdata
 
 ## Ports
 
+### Local
+
 | Service | Port | URL |
 |---------|------|-----|
 | Frontend (Vite) | 8443 | http://localhost:8443 |
 | Backend (Express) | 3001 | http://localhost:3001 |
 | PostgreSQL | 5432 | postgresql://localhost:5432/fincalc |
+
+### Production
+
+| Service | URL |
+|---------|-----|
+| Frontend (Vercel) | https://<your-app>.vercel.app |
+| Backend (Render) | https://finance-management-ioe4.onrender.com |
+| Database (Render) | PostgreSQL connection string |
 
 ## Seed Accounts
 
@@ -169,6 +179,97 @@ docker volume rm fincalc-pgdata
 ```bash
 cd backend
 cat prisma/schema.prisma
+```
+
+## Production Deploy (Render + Vercel)
+
+### Kiến trúc
+
+```
+Vercel (Frontend)          Render (Backend)         Render PostgreSQL
+┌─────────────────┐       ┌──────────────────┐     ┌──────────────┐
+│ React + Vite    │──────▶│ Express + Prisma │────▶│ PostgreSQL   │
+│ Static SPA      │  API  │ Node.js          │     │ fincalc      │
+└─────────────────┘       └──────────────────┘     └──────────────┘
+```
+
+### Backend lên Render
+
+1. **Tạo PostgreSQL service trên Render:**
+   - New → PostgreSQL
+   - Database Name: `fincalc`
+   - Copy connection string → dùng làm `DATABASE_URL`
+
+2. **Tạo Web Service trên Render:**
+   - New → Web Service
+   - Connect GitHub repo
+   - Build Command: `cd backend && npm install && npx prisma generate`
+   - Start Command: `cd backend && node src/server.js`
+   - Environment Variables:
+
+   ```
+   DATABASE_URL=<PostgreSQL connection string từ Render>
+   JWT_SECRET=fincalc-jwt-secret-production-2026
+   FRONTEND_URL=https://<your-app>.vercel.app
+   NODE_ENV=production
+   ```
+
+3. **Deploy:**
+   - Render sẽ tự động run Prisma migrations nếu cấu hình Build Command đúng
+   - Hoặc thêm script: `npx prisma migrate deploy`
+
+### Frontend lên Vercel
+
+1. **Tạo project trên Vercel:**
+   - Import GitHub repo
+   - Framework: Vite
+   - Root Directory: `frontend`
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+
+2. **Environment Variables:**
+   ```
+   VITE_API_URL=https://<your-app>.onrender.com/api
+   ```
+
+   Ví dụ:
+   ```
+   VITE_API_URL=https://finance-management-ioe4.onrender.com/api
+   ```
+
+3. **Deploy:**
+   - Vercel sẽ tự động build và deploy
+   - Frontend sẽ gọi API tới Render backend
+
+### Cập nhật CORS trên Backend
+
+Đảm bảo `FRONTEND_URL` trong Render environment variables đúng với domain Vercel:
+
+```
+FRONTEND_URL=https://<your-app>.vercel.app
+```
+
+### Kiểm tra Production
+
+```bash
+# Health check backend
+curl https://finance-management-ioe4.onrender.com/api/health
+
+# Đăng nhập
+curl -X POST https://finance-management-ioe4.onrender.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"nguyenvana@email.com","password":"password123"}'
+```
+
+### Lưu ý Render Free Tier
+
+- Service sẽ **sleep sau 15 phút** không có traffic
+- First request sau sleep sẽ **chậm ~30s** (cold start)
+- Để tránh sleep, dùng [UptimeRobot](https://uptimerobot.com/) ping mỗi 5 phút
+
+```bash
+# Ping giữ alive (thêm vào cron hoặc UptimeRobot)
+curl https://finance-management-ioe4.onrender.com/api/health
 ```
 
 ## Troubleshooting
