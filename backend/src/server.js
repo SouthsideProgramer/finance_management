@@ -14,8 +14,24 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'https://finance-management-three-self.vercel.app', credentials: true }))
-app.use(express.json())
+const allowedOrigins = [
+  "http://localhost:8443",
+  "https://finance-management-three-self.vercel.app",
+  "https://finance-management-git-main-southsideprogramers-projects.vercel.app",
+];
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
+app.use(express.json());
 
 // ── Health ──────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
