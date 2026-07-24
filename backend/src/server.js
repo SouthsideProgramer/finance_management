@@ -14,7 +14,7 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:8443', credentials: true }))
+app.use(cors({ origin: process.env.FRONTEND_URL || 'https://finance-management-three-self.vercel.app', credentials: true }))
 app.use(express.json())
 
 // ── Health ──────────────────────────────────────────────────
