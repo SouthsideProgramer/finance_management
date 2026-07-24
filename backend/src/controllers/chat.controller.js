@@ -1,4 +1,5 @@
 import prisma from '../config/database.js'
+import { chat } from '../services/ai.service.js'
 
 export async function sendMessage(req, res) {
   try {
@@ -8,7 +9,6 @@ export async function sendMessage(req, res) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
-    // Create or reuse conversation
     let conversation
     if (conversationId) {
       conversation = await prisma.conversation.findFirst({
@@ -26,7 +26,6 @@ export async function sendMessage(req, res) {
       })
     }
 
-    // Save user message
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -35,10 +34,23 @@ export async function sendMessage(req, res) {
       },
     })
 
-    // Generate AI reply (placeholder — replace with real LLM call)
-    const reply = generateReply(message.trim())
+    // Load recent chat history for context (last 20 messages)
+    const history = await prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+      select: { role: true, content: true },
+      take: 20,
+    })
 
-    // Save assistant reply
+    let reply
+    try {
+      const result = await chat(history)
+      reply = result.content
+    } catch (aiErr) {
+      console.error('AI service error:', aiErr.message)
+      reply = 'Xin lỗi, tôi gặp sự cố kết nối với AI. Vui lòng thử lại sau.'
+    }
+
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -47,7 +59,6 @@ export async function sendMessage(req, res) {
       },
     })
 
-    // Mirror to chat_history
     await prisma.chatHistory.createMany({
       data: [
         { userId: req.userId, role: 'user', content: message.trim() },
@@ -103,21 +114,4 @@ export async function listConversations(req, res) {
     console.error('List conversations error:', err)
     res.status(500).json({ error: 'Failed to list conversations' })
   }
-}
-
-// ── Placeholder AI reply (replace with LLM integration) ─────
-function generateReply(userMessage) {
-  const lower = userMessage.toLowerCase()
-
-  if (lower.includes('vay')) {
-    return 'Nếu mục tiêu là giảm áp lực lãi vay, ưu tiên chọn kỳ hạn ngắn hơn, giữ tỷ lệ nợ dưới 30% thu nhập và ưu tiên trả trước phần dư nợ có lãi cao.'
-  }
-  if (lower.includes('đầu tư') || lower.includes('gửi')) {
-    return 'Một cách tối ưu là giữ 60% vào khoản có lãi ổn định, 30% vào danh mục tăng trưởng và 10% dành cho dự phòng khẩn cấp.'
-  }
-  if (lower.includes('tiết kiệm') || lower.includes('mục tiêu')) {
-    return 'Để đạt mục tiêu tiết kiệm, hãy phân bổ 3 tầng tiền: nhu cầu ngắn hạn (50%), mục tiêu trung hạn (30%) và dự phòng (20%).'
-  }
-
-  return 'Tôi đề xuất bạn bắt đầu bằng mục tiêu rõ ràng, phân bổ 3 tầng tiền: nhu cầu ngắn hạn, mục tiêu trung hạn và dự phòng. Bạn có muốn tôi tính toán cụ thể không?'
 }
