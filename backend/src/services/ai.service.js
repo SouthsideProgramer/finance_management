@@ -17,7 +17,7 @@ Nguyên tắc:
 
 export async function chat(messages, options = {}) {
   const apiKey = options.apiKey || process.env.OPENROUTER_API_KEY
-  const model = options.model || 'model: "meta-llama/llama-3.3-8b-instruct:free"'
+  const model = options.model || 'meta-llama/llama-3.3-8b-instruct:free'
 
   if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY is not configured')
